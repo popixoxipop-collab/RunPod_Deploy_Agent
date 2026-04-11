@@ -205,7 +205,7 @@
 |------|------|
 | 증상 | 수 GB~TB 모델 데이터 소멸 |
 | 트리거 | 자동화 스크립트의 cleanup 단계 |
-| 해결 | Hook에서 `deleteNetworkVolume` 명령 차단. 사용자 명시 승인 시에만 허용 |
+| 해결 | Hook에서 `deleteNetworkVolume` 명령 차단. 명시적 승인 있을 때만 허용 |
 
 ### F7. API 인증 `api-key:` 헤더 무효
 

@@ -13,7 +13,7 @@
 | 7 | 2026-04-10 | 235B+ | RunPod NFS I/O error (os error 5) | 시간 손실 | HF_HUB_DISABLE_XET=1 |
 | 8 | 2026-04-10 | 671B | hf_transfer futex deadlock | 시간 손실 | hf_transfer OFF + max_workers=8 |
 | 9 | 2026-04-09 | 235B | 볼륨 크기 부족 (BnB 4-bit 원본 BF16) | 시간 손실 | volume >= params_B x 2 x 1.1 |
-| 10 | 2026-04-09 | 235B | Network volume 실수 삭제 | 117GB 재다운 | deleteNetworkVolume 차단 hook |
+| 10 | 2026-04-09 | - | Network volume 실수 삭제 | 모델 재다운 | deleteNetworkVolume 차단 hook |
 | 11 | 2026-04-09 | 235B | Qwen3 GPTQ auto-gptq Triton 무한 컴파일 | 시간 손실 | DISABLE_EXLLAMA=1 + 버전 고정 |
 | 12 | 2026-04-09 | - | transformers 4.51+ set_submodule 요구 | 시간 손실 | PyTorch 2.5+ 업그레이드 |
 | 13 | 2026-04-09 | - | bitsandbytes 0.49+ libnvJitLink.so.13 not found | 시간 손실 | LD_LIBRARY_PATH 또는 버전 downgrade |
@@ -89,7 +89,6 @@ device_map["lm_head"] = n_gpus - 1
 **손실**:
 - 실제 크래시 비용: ~$33 (3시간 42분 × $8.94/hr)
 - 전체 세션: ~$80+ (누적 크래시)
-- 사용자 피로: 수면 ~4시간 손실
 
 ---
 
@@ -151,14 +150,14 @@ BF16 해제 사이클에서 파편화시킴. GPU5가 max_memory 72 GiB에 도달
 
 **시퀀스**:
 ```
-- 117GB Qwen3 모델 다운 완료된 볼륨 존재
-- 새 실험 위해 DC 변경 필요
-- Agent가 자동 cleanup 단계에서 볼륨 삭제
+- 대형 모델이 다운로드된 볼륨 존재
+- DC 변경 필요한 작업
+- 자동 cleanup 단계에서 볼륨 삭제
 - 모델 데이터 소멸, 재다운로드 필요
 ```
 
-**예방**: Hook에서 `deleteNetworkVolume` 명령 차단. 사용자 명시 승인 있을 때만 허용.
+**예방**: Hook에서 `deleteNetworkVolume` 명령 차단. 명시적 승인 있을 때만 허용.
 ```python
 if 'deleteNetworkVolume' in command:
-    block("Network Volume 삭제 금지 - 사용자 명시적 승인 필요")
+    block("Network Volume 삭제 금지 - 명시적 승인 필요")
 ```

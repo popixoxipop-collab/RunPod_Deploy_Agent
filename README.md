@@ -38,7 +38,7 @@ Write / Edit 도구 호출 시 자동으로 Python 스크립트 정적 분석.
 ## 누가 써야 하는가
 
 - RunPod에서 **70B+ 대형 모델**을 BnB 4-bit로 로딩하는 ML 엔지니어
-- Claude Code로 LLM 실험을 자동화하는 사용자
+- Claude Code로 LLM 작업을 자동화하는 개발자
 - 이전에 device_map OOM, meta tensor 크래시, spot instance 중단 등으로 고생한 적 있는 사람
 
 ---

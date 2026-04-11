@@ -73,7 +73,7 @@ mutation {
    Volume DC = US-MD-1 → Pod도 dataCenterId: "US-MD-1" 필수
    ```
 2. **다른 DC Pod 생성 시**: 볼륨 마운트 실패 → pod 무용지물
-3. **볼륨 삭제는 불가역**: `deleteNetworkVolume` 호출 전 사용자 승인 필수
+3. **볼륨 삭제는 불가역**: `deleteNetworkVolume` 호출 전 명시적 승인 필수
 
 ---
 

@@ -34,7 +34,7 @@ import ast
 
 
 # 모델별 최소 transformers 요구 버전
-# (사용자 프로젝트에서 직접 확장 가능)
+# (각 프로젝트에서 직접 확장 가능)
 KNOWN_MIN_VERSIONS = {
     "Qwen/Qwen3-235B-A22B": "4.51.0",
     "Qwen/Qwen3-235B-A22B-GPTQ-Int4": "4.51.0",

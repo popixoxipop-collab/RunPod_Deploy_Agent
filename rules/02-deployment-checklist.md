@@ -138,7 +138,7 @@ python pipeline/pod_deploy.py \
 - [ ] 결과 파일 로컬로 rsync (terminate 전에)
 - [ ] 로컬 파일 검증 (크기, 포맷)
 - [ ] Pod terminate (**순서: log fetch → terminate**)
-- [ ] Volume 유지 여부 결정 (사용자 승인 없이 삭제 금지)
+- [ ] Volume 유지 여부 결정 (명시적 승인 없이 삭제 금지)
 
 ---
 
@@ -158,9 +158,9 @@ python pipeline/pod_deploy.py \
 
 ---
 
-## 사용자에게 보고할 내용
+## 배포 전 보고 포맷
 
-배포 시작 전 사용자에게:
+배포 시작 전 다음 정보를 보고:
 
 ```
 [Deployment Plan]
@@ -171,9 +171,9 @@ python pipeline/pod_deploy.py \
 - Image:         <IMAGE>
 - Volume:        <VOL_ID> (<size>GB)
 - Datacenter:    <DC>
-- Estimated:     loading <X>h + inference <Y>h = <Z>h total
+- Estimated:     loading <X>h + run <Y>h = <Z>h total
 - Cost:          ~$<total>
 - Preflight:     PASS (X checks)
 ```
 
-사용자 승인 후 배포 시작.
+명시적 승인 후 배포 시작.

@@ -17,7 +17,7 @@ Llama 3.1 70B Instruct를 RunPod A100 80GB 2장에서 BnB 4-bit로 로딩하는
 1. 메모리 예산 계산 (70B × 0.5 × 1.15 = 40.25 GB < 2 × 80 × 0.85 = 136 GB ✓)
 2. 스크립트 작성 (templates 사용, 수동 device_map 포함)
 3. `runpod-preflight` 로 정적 분석
-4. 사용자 승인 후 pod 생성 (on-demand, volume 연결)
+4. 명시적 승인 후 pod 생성 (on-demand, volume 연결)
 5. 스크립트 업로드 + 백그라운드 실행
 6. 60초 후 double-check
 7. 결과 rsync → pod stop
@@ -72,7 +72,7 @@ Llama 3.1 70B Instruct를 RunPod A100 80GB 2장에서 BnB 4-bit로 로딩하는
 - 예산: `n_gpus × vram_gb × 0.85` GB (15% workspace 여유)
 - 볼륨: `params_b × 2 × 1.1` GB (BnB는 원본 BF16 필요)
 - 시간/비용 추정
-- **사용자 승인 대기**
+- **승인 대기**
 
 ### Phase 1: 스크립트 작성 (templates 사용)
 
@@ -134,7 +134,7 @@ model = AutoModelForCausalLM.from_pretrained(
 model.eval()
 print(f"Loaded in {time.time()-t0:.0f}s")
 
-# 이후 사용자 작업 로직
+# 이후 작업 로직
 ...
 ```
 
@@ -187,14 +187,14 @@ runpod-idle-monitor --action stop --poll-interval-sec 300 &
 RUNPOD_AGENT=1 scp -P <port> root@<ip>:/workspace/results/* ./results/
 # Pod 종료
 runpod-deploy --terminate <pod_id>
-# Volume 유지 여부 사용자 확인
+# Volume 유지 여부 확인
 ```
 
 ---
 
 ## 금지 예제 (에이전트가 거절해야 함)
 
-### 사용자가 spot 요청
+### Spot 요청 시나리오
 ```
 /agent runpod-deploy
 Spot 인스턴스로 3시간짜리 로딩 돌려줘
@@ -204,12 +204,12 @@ Spot 인스턴스로 3시간짜리 로딩 돌려줘
 > 1시간+ 작업에 spot 사용 금지 (R13). 뺏기면 시간 전체 손실.
 > On-demand로 진행할까요? 추가 비용 약 $X.
 
-### 사용자가 volume 삭제 요청 없이 삭제 자동화
+### 명시적 승인 없는 volume 삭제 자동화 시나리오
 ```
 /agent runpod-deploy
 작업 끝나면 pod + 볼륨 전부 정리해줘
 ```
 
 **에이전트 응답**:
-> Pod은 terminate 가능하지만, volume 삭제는 사용자 명시적 "삭제" 확인 필요 (R14).
+> Pod은 terminate 가능하지만, volume 삭제는 명시적 삭제 승인 필요 (R14).
 > 볼륨 유지 시 시간당 저장 비용만 과금됩니다. 삭제할까요?

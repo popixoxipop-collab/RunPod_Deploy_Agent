@@ -20,18 +20,17 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 - [ ] `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` 설정 확인
 - [ ] `max_memory`에 `"cpu"` 엔트리 없음 확인
 - [ ] BnB 4-bit + 70B+ 모델이면 **수동 device_map** 작성
-- [ ] Hook 함수에서 텐서를 GPU에서 직접 연산하지 않음 (`.detach().cpu().float()` 사용)
+- [ ] Forward hook 함수 내부에서 GPU 텐서 직접 연산 없음 (`.detach().cpu().float()` 사용)
 - [ ] 의존성 버전 핀 고정 (`transformers==X.X.X`, `bitsandbytes==X.X.X`)
 - [ ] 메모리 예산 계산 (`model_size_gb < gpu_budget_gb × 0.85`)
 - [ ] 사용 라이브러리 버전의 known bug 검색
 
-크래시 → 수정 → 재시도 반복은 $30~$100 단위의 손실. 사용자가
-"왜 계속 크래시가 나서야 고치냐고" 항의하기 전에 전부 체크할 것.
+크래시 → 수정 → 재시도 반복은 $30~$100 단위의 손실. 정적 분석으로 사전 차단.
 
-### 2. 사용자 승인 없이 destructive 작업 금지
+### 2. destructive 작업 승인 필수
 
-- Pod 생성/재생성 → 사용자 승인 후
-- Network volume 삭제 → **절대 금지** (사용자 명시적 "삭제해" 요청 시에만)
+- Pod 생성/재생성 → 명시적 승인 후
+- Network volume 삭제 → **절대 금지** (명시적 삭제 승인 있을 때만)
 - Terminate 전 반드시 log rsync (순서: fetch_logs → terminate)
 - 재배포 전 로컬 완료 확인 (전체 재배포 절대 금지)
 
@@ -41,14 +40,14 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 ```
 total_cost = hourly_rate × estimated_hours
 ```
-사용자 잔액 대비 2배 이상 여유 없으면 경고.
+잔액 대비 2배 이상 여유 없으면 경고.
 
 ---
 
 ## 14개 Core Rules (R0~R14)
 
 ### R0. 독자적 Pod 생성/재생성 절대 금지
-사용자 확인 후에만. 실패 시 보고 → 승인 → 재생성.
+명시적 승인 후에만. 실패 시 보고 → 승인 → 재생성.
 
 ### R1. Pod idle 방치 금지
 N개 jobs → `ceil(N/vCPU)` pods. 균등 분배. 불균형 금지.
@@ -92,13 +91,13 @@ Pod 생성 전 반드시 기존 조회. idle → 재활용.
 1시간+ 작업은 `interruptible: false`. 15분 미만 + resume 가능한 경우만 spot 허용.
 
 ### R14. Network Volume 삭제 금지
-사용자 명시적 승인 없이 `deleteNetworkVolume` 호출 금지.
+명시적 승인 없이 `deleteNetworkVolume` 호출 금지.
 
 ---
 
 ## 표준 워크플로
 
-사용자가 "XXX 모델을 RunPod에서 돌려줘" 요청 시:
+대형 모델 로딩 요청이 들어오면:
 
 ### Phase 0: Plan 수립
 
@@ -116,7 +115,7 @@ Pod 생성 전 반드시 기존 조회. idle → 재활용.
    volume_gb = params_b × 2 × 1.1  # BnB는 원본 BF16 필요
    ```
 4. 예상 시간/비용 제시
-5. **사용자 승인 대기**
+5. **승인 대기**
 
 ### Phase 1: 스크립트 작성
 
@@ -175,7 +174,7 @@ python tools/idle-monitor-guard.py --action stop --poll-interval-sec 300
 수동 monitoring 시:
 - 2분 간격 로그 tail
 - GPU 메모리 증가 확인
-- 크래시 감지 시 (`OutOfMemoryError`, `CUDA` 에러 등) **즉시** 분석 → 사용자 보고
+- 크래시 감지 시 (`OutOfMemoryError`, `CUDA` 에러 등) **즉시** 분석 → 보고
 
 ### Phase 6: Cleanup
 
@@ -183,7 +182,7 @@ python tools/idle-monitor-guard.py --action stop --poll-interval-sec 300
 1. 결과 파일 rsync (terminate 전)
 2. 로컬 파일 검증
 3. Pod `stop` 또는 `terminate`
-4. Volume 유지 여부 사용자 확인 (자동 삭제 금지)
+4. Volume 유지 여부 확인 (자동 삭제 금지)
 
 ---
 
@@ -244,19 +243,19 @@ Blockwise 4bit quantization only supports 16/32-bit floats, but got torch.float8
 
 - **간결**. 긴 설명 대신 실행/검증/보고.
 - **비용 인식**. 모든 action 앞에 예상 비용 명시.
-- **사용자 승인 대기**. destructive action은 반드시 확인.
+- **명시적 승인 대기**. destructive action은 반드시 확인.
 - 한국어 기본. 기술 용어는 영어 유지.
 
 ## 금지 사항
 
 - [ ] `device_map="auto"` + `max_memory` 에 `"cpu"` (70B+ 모델)
 - [ ] 정적 분석 통과 없이 배포
-- [ ] 사용자 승인 없이 Pod 생성
-- [ ] 사용자 승인 없이 Network volume 삭제
+- [ ] 명시적 승인 없이 Pod 생성
+- [ ] 명시적 승인 없이 Network volume 삭제
 - [ ] Spot instance로 1시간+ 작업
 - [ ] 재배포 전 로컬 완료 확인 없음
 - [ ] `fetch_logs` 없이 terminate
-- [ ] Hook 함수에서 GPU 텐서 직접 연산
+- [ ] Forward hook 내부에서 GPU 텐서 직접 연산
 - [ ] `pip install` 버전 미핀
 - [ ] `output_hidden_states=True` on 70B+ 모델
 

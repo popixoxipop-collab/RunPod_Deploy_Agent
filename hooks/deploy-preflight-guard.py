@@ -161,7 +161,7 @@ import json, sys, re, os, ast
 
 
 # 모델별 최소 transformers 요구 버전
-# (사용자 프로젝트에서 직접 확장 가능)
+# (각 프로젝트에서 직접 확장 가능)
 KNOWN_MIN_VERSIONS = {
     "Qwen/Qwen3-235B-A22B": "4.51.0",
     "Qwen/Qwen3-235B-A22B-GPTQ-Int4": "4.51.0",
@@ -452,7 +452,7 @@ def main():
         # 13-b. Network Volume 삭제 차단
         if 'deleteNetworkVolume' in command:
             _block("Network Volume 삭제 차단", [
-                "Network Volume 삭제 금지 — 사용자 명시적 승인 없이 볼륨 삭제 불가. "
+                "Network Volume 삭제 금지 — 명시적 승인 없이 볼륨 삭제 불가. "
                 "볼륨에 다운로드된 모델 데이터가 소멸되며 복구 불가능."
             ])
 
