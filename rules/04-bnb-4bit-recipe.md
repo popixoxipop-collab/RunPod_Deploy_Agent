@@ -1,6 +1,6 @@
 # BnB 4-bit 대형 모델 안전 레시피
 
-70B~671B 모델을 bitsandbytes 4-bit로 로딩할 때 반드시 따라야 할 패턴.
+대형 모델을 bitsandbytes 4-bit로 로딩할 때 반드시 따라야 할 패턴.
 
 ---
 
@@ -9,7 +9,7 @@
 | 항목 | 버전 |
 |------|------|
 | PyTorch | 2.4.1+cu124 (또는 2.6.0+cu124) |
-| transformers | 4.48.3 (R1/V3 등 custom modeling_*.py 모델) 또는 4.51+ (표준 HF 모델) |
+| transformers | 4.48.3 (custom modeling 파일 사용 모델) 또는 4.51+ (표준 HF 모델) |
 | bitsandbytes | 0.49.2 (주의: 아래 "BnB 0.49.2 버그 주의" 참고) |
 | accelerate | 1.13.0 |
 | CUDA | 12.4 |
@@ -97,7 +97,7 @@ custom_device_map["lm_head"] = n_gpus - 1
 print(f"device_map: {n_layers} layers across {n_gpus} GPUs → {layers_per_gpu}")
 ```
 
-> **주의**: 위는 LLaMA/Qwen/DeepSeek 스타일 (`model.layers.{i}`) 기준.
+> **주의**: 위는 LLaMA 계열 (`model.layers.{i}`) 기준.
 > 다른 아키텍처는 모듈 이름이 다를 수 있음. 빈 모델 inspect로 확인:
 > ```python
 > from accelerate import init_empty_weights

@@ -79,11 +79,11 @@ gpu_budget ≈ gpu_count × gpu_vram × 0.85  # 15% workspace 여유
 assert model_size_4bit < gpu_budget, "VRAM 부족 → GPU 수 늘리기"
 ```
 
-예시 (DeepSeek-R1 671B, 7× A100 80GB):
+예시 계산:
 ```
-model_size = 671 × 0.5 × 1.15 = 385.8 GB
-gpu_budget = 7 × 80 × 0.85 = 476.0 GB
-→ 여유 90 GB, 안전
+params_B × 0.5 × 1.15 → 필요 VRAM
+n_gpus × vram_gb × 0.85 → 가용 예산
+여유 > 0 이어야 안전
 ```
 
 ### 레이어별 분배 (수동 device_map)
@@ -92,10 +92,9 @@ gpu_budget = 7 × 80 × 0.85 = 476.0 GB
 n_layers = config.num_hidden_layers
 n_gpus = torch.cuda.device_count()
 layers_per_gpu = [(n_layers + i) // n_gpus for i in range(n_gpus)]
-# 예: 61 layers / 7 GPUs = [9, 9, 9, 9, 9, 8, 8]
 ```
 
-MoE 모델은 대부분 레이어 크기 유사하므로 레이어 수 기반 분배 OK.
+대부분 레이어 크기 유사하므로 레이어 수 기반 분배 OK.
 
 ---
 

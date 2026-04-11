@@ -3,8 +3,6 @@
 **Claude Code subagent + 자동 파이프라인**으로 RunPod 대형 모델 배포 시
 크래시와 자원 낭비를 사전에 차단한다.
 
-실전에서 축적된 30+ 시행착오 사례를 바탕으로 구축됨.
-
 ---
 
 ## 무엇을 제공하는가
@@ -99,7 +97,7 @@ python tools/pod-deploy-guard.py --list
 # 3. 안전한 pod 생성
 python tools/pod-deploy-guard.py \
     --gpu-type "NVIDIA A100-SXM4-80GB" \
-    --gpu-count 7 \
+    --gpu-count N \
     --volume-id YOUR_VOL_ID \
     --datacenter US-MD-1 \
     --public-key "$(cat ~/.ssh/id_ed25519.pub)" \
@@ -148,16 +146,16 @@ RunPod_Deploy_Agent/
 
 ## 왜 필요한가
 
-**실제 발생 손실**:
+주요 크래시 유형:
 
-| 크래시 | 원인 | 손실 |
-|--------|------|------|
-| GPU 단편화 OOM | `expandable_segments` 미설정 | ~$18 |
-| BnB meta tensor | `max_memory`에 `"cpu"` 엔트리 | ~$33 |
-| Spot instance 뺏김 | 장기 작업에 spot | ~$3 + 시간 |
-| Network volume 실수 삭제 | 자동화 cleanup 미승인 | 100GB+ 재다운 |
-| 중복 pod 생성 | 기존 pod 확인 안 함 | $1.76/hr × N |
-| Idle pod 방치 | 완료 후 terminate 안 함 | ~$4 |
+| 크래시 | 원인 |
+|--------|------|
+| GPU 단편화 OOM | `expandable_segments` 미설정 |
+| BnB meta tensor | `max_memory`에 `"cpu"` 엔트리 |
+| Spot instance 회수 | 장기 작업에 spot |
+| Network volume 삭제 사고 | 자동화 cleanup 미승인 |
+| 중복 pod 생성 | 기존 pod 확인 안 함 |
+| Idle pod 방치 | 완료 후 terminate 안 함 |
 
 대부분은 **사전 정적 분석만 했어도 막을 수 있던 것들**.
 이 에이전트는 그 정적 분석을 자동화한다.

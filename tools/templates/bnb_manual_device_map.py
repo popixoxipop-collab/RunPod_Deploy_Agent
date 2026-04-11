@@ -27,12 +27,9 @@ from typing import Any
 
 
 # 모델 아키텍처별 레이어 prefix
+# (필요 시 사용자 프로젝트에서 아키텍처 추가)
 LAYER_PREFIX_BY_ARCH = {
     "LlamaForCausalLM": "model.layers",
-    "Qwen2ForCausalLM": "model.layers",
-    "Qwen3ForCausalLM": "model.layers",
-    "DeepseekV2ForCausalLM": "model.layers",
-    "DeepseekV3ForCausalLM": "model.layers",
     "MistralForCausalLM": "model.layers",
     "MixtralForCausalLM": "model.layers",
     "GPTNeoXForCausalLM": "gpt_neox.layers",
@@ -41,10 +38,6 @@ LAYER_PREFIX_BY_ARCH = {
 
 EMBED_MODULE_BY_ARCH = {
     "LlamaForCausalLM": "model.embed_tokens",
-    "Qwen2ForCausalLM": "model.embed_tokens",
-    "Qwen3ForCausalLM": "model.embed_tokens",
-    "DeepseekV2ForCausalLM": "model.embed_tokens",
-    "DeepseekV3ForCausalLM": "model.embed_tokens",
     "MistralForCausalLM": "model.embed_tokens",
     "MixtralForCausalLM": "model.embed_tokens",
     "GPTNeoXForCausalLM": "gpt_neox.embed_in",
@@ -53,10 +46,6 @@ EMBED_MODULE_BY_ARCH = {
 
 FINAL_MODULES_BY_ARCH = {
     "LlamaForCausalLM": ["model.norm", "lm_head"],
-    "Qwen2ForCausalLM": ["model.norm", "lm_head"],
-    "Qwen3ForCausalLM": ["model.norm", "lm_head"],
-    "DeepseekV2ForCausalLM": ["model.norm", "lm_head"],
-    "DeepseekV3ForCausalLM": ["model.norm", "lm_head"],
     "MistralForCausalLM": ["model.norm", "lm_head"],
     "MixtralForCausalLM": ["model.norm", "lm_head"],
     "GPTNeoXForCausalLM": ["gpt_neox.final_layer_norm", "embed_out"],
@@ -105,7 +94,6 @@ def build_device_map(
         raise ValueError(f"n_gpus ({n_gpus}) > n_layers ({n_layers})")
 
     # 레이어 분배: 잔여분을 앞쪽 GPU에 분산
-    # 예: 61 layers / 7 GPUs → base 8, 잔여 5 → [9, 9, 9, 9, 9, 8, 8]
     base = n_layers // n_gpus
     extra = n_layers % n_gpus
     layers_per_gpu = [base + (1 if i < extra else 0) for i in range(n_gpus)]
@@ -138,12 +126,12 @@ def summary(device_map: dict[str, int]) -> str:
 
 
 if __name__ == "__main__":
-    # 예시: 61 layers, 7 GPUs
+    # 예시
     class FakeConfig:
-        num_hidden_layers = 61
-        architectures = ["DeepseekV3ForCausalLM"]
+        num_hidden_layers = 32
+        architectures = ["LlamaForCausalLM"]
 
-    dm = build_device_map(FakeConfig(), n_gpus=7)
+    dm = build_device_map(FakeConfig(), n_gpus=4)
     print(summary(dm))
     print("\nSample entries:")
     for k in list(dm.keys())[:5]:

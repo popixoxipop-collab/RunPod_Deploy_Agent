@@ -34,22 +34,15 @@ import ast
 
 
 # 모델별 최소 transformers 요구 버전
-# (각 프로젝트에서 직접 확장 가능)
-KNOWN_MIN_VERSIONS = {
-    "Qwen/Qwen3-235B-A22B": "4.51.0",
-    "Qwen/Qwen3-235B-A22B-GPTQ-Int4": "4.51.0",
-    "deepseek-ai/DeepSeek-R1": "4.46.3",
-    "deepseek-ai/DeepSeek-V3": "4.46.3",
+# 사용자 프로젝트에서 직접 확장하여 사용
+KNOWN_MIN_VERSIONS: dict[str, str] = {
     "meta-llama/Llama-3.1-70B-Instruct": "4.43.0",
     "meta-llama/Llama-3.1-405B": "4.43.0",
 }
 
-# 알려진 모델 크기 (GB)
-MODEL_VRAM_GB = {
-    "Qwen/Qwen3-235B-A22B-GPTQ-Int4": 120,
-    "Qwen/Qwen3-235B-A22B": 470,
-    "deepseek-ai/DeepSeek-R1": 671,
-    "deepseek-ai/DeepSeek-V3": 671,
+# 알려진 모델 크기 (GB, 원본 dtype 기준)
+# 사용자 프로젝트에서 직접 확장하여 사용
+MODEL_VRAM_GB: dict[str, int] = {
     "meta-llama/Llama-3.1-70B-Instruct": 140,
     "meta-llama/Llama-3.1-405B": 810,
 }

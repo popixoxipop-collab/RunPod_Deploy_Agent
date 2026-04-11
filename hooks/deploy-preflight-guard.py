@@ -11,7 +11,7 @@ Code Quality Preflight Guard (PreToolUse: Write, Edit, Bash)
 
 검사 항목:
   1. syntax 파싱
-  2. total_mem 오타 → total_memory
+  2. total_memory 오타 탐지
   3. transformers 버전 호환성 (MODEL_ID ↔ 요구 버전)
   4. is_torch_fx_available 참조 (transformers 5.x에서 제거)
   5. RunPod 스크립트에 google.colab import 혼입
@@ -22,69 +22,48 @@ Code Quality Preflight Guard (PreToolUse: Write, Edit, Bash)
  10. GPTQ 사용 시 검증된 버전 조합 강제
  11. RunPod 스크립트에 HF_HOME 환경변수 누락
  12. output_hidden_states=True 대용량 모델 메모리 경고
+ 13. BnB 4-bit + max_memory 'cpu' 엔트리 + device_map='auto' 금지
+ 14. 대형 모델 + expandable_segments 누락 탐지
+ 15. multi-GPU forward hook device mismatch 탐지
 
-[시행착오 기록 — 2026-04-09 Qwen3-235B GPTQ]
-- 4-bit bitsandbytes: CPU offload 불가 → 8-bit 또는 GPTQ 사용
+[GPTQ 시행착오 — 공통 함정]
+- 4-bit bitsandbytes: CPU offload 제약 → 8-bit 또는 GPTQ 선택지
 - GPTQ 검증 버전: transformers==4.51.3 + optimum==1.23.3 + auto-gptq==0.7.1
-- H100 NVL x1 = 96GB VRAM, GPTQ-Int4 235B = 120GB → CPU offload 필수
-- output_hidden_states=True 로 94레이어 전부 올리면 RAM 폭발 → forward hook 사용
-- HF_HOME 미설정 → 모델이 container disk(/root/.cache)에 쌓여 50GB 초과
-- idle monitor IDLE_STRIKES=2 → 모델 로딩 중 GPU 0%로 오탐 종료 → IDLE_STRIKES=10
+- output_hidden_states=True 로 전 레이어 state 동시 보관 → RAM 폭발
+- HF_HOME 미설정 → 모델이 container disk(/root/.cache)에 쌓여 disk full
 - bitsandbytes SCB 버그: Colab Python3.12 + device_map=auto → 몽키패치 필수
 - auto-gptq 0.7.1 + PyTorch 2.4: rshift_cuda Half 에러 → qlinear_cuda_old.py
   line 296(qzeros)과 line 311(qweight)에 .to(torch.int32) 패치 필수
-- auto-gptq CUDA ext 미설치 시 Triton 커널 컴파일에 CPU 2000%+ 무한 대기
-  → I/O 거의 0 (모델 파일 안 읽음), GPU 0% 상태로 15분+ 멈춤
+- auto-gptq CUDA ext 미설치 시 Triton 커널 컴파일 무한 대기
   → 해결: GPTQConfig(bits=4, disable_exllama=True) + DISABLE_EXLLAMA=1 환경변수
-  → CUDA old backend(qlinear_cuda_old) 직접 사용으로 Triton 컴파일 우회
 - PyTorch 2.11 + CUDA 13.0 환경에서 auto-gptq 0.7.1 CUDA ext pre-built wheel 없음
-  → pip install --no-deps로 설치 시 wheel만 설치되어 CUDA ext 빠짐
-  → BUILD_CUDA_EXT=1 --no-build-isolation --no-deps --force-reinstall로 소스 빌드 필요
-  → 단, --force-reinstall이 torch/transformers 버전 덮어쓰므로 반드시 --no-deps 병행
+  → BUILD_CUDA_EXT=1 --no-build-isolation --no-deps --force-reinstall 로 소스 빌드
 - HF cache 중복: snapshot_download(cache_dir=X)와 from_pretrained(MODEL_ID)가
-  hub/ 하위에 복사본 생성 → 200GB 볼륨 초과
+  hub/ 하위에 복사본 생성 → 볼륨 초과
   → 해결: HUGGINGFACE_HUB_CACHE=cache_dir로 통일, 또는 LOCAL_PATH 직접 지정
 
-[시행착오 기록 — 2026-04-10 Qwen3-235B BnB 4-bit]
-- ★ BnB 사용 시 볼륨 용량 선행 계산 필수 ★
-  BnB 4-bit는 bf16 원본을 다운로드 후 로딩 시 양자화 → 디스크에 bf16 전체 필요
+[BnB 4-bit 시행착오 — 공통 함정]
+- BnB 4-bit는 bf16 원본을 다운로드 후 로딩 시 양자화 → 디스크에 bf16 전체 필요
   공식: 볼륨 >= 모델 파라미터수(B) × 2 × 1.1 (GB, 10% 여유)
-  예: 235B → 470GB × 1.1 = 517GB → 최소 600GB 볼륨
-  예: 671B(R1) → 1,342GB × 1.1 = 1,476GB → 최소 1,500GB 볼륨 (fp8이면 671GB)
-  GPTQ 프리 양자화는 디스크 작지만 라이브러리 호환 지옥 → BnB가 안정적
+  단, fp8 원본이면 × 1 (× 2 아님)
 - GPTQ vs BnB 판단 기준:
-  볼륨 여유 있으면 → BnB (단순, 안정, 72B에서 검증)
-  볼륨 부족하면 → GPTQ (디스크 절약이나 auto-gptq 호환성 문제 각오)
+  볼륨 여유 있으면 → BnB (단순, 안정)
+  볼륨 부족하면 → GPTQ (디스크 절약이나 auto-gptq 호환성 문제 감수)
 - transformers>=4.51.0 + PyTorch 2.4: set_submodule 없음
-  → PyTorch 2.5+ 필요 (set_submodule은 PyTorch 2.5에서 추가)
-  → 또는 transformers<4.48 사용 (set_submodule 미사용 버전)
+  → PyTorch 2.5+ 필요 또는 transformers<4.50 사용
 - PyTorch 업그레이드 시 반드시 torchvision도 함께 업그레이드
-  → torch만 올리면 torchvision::nms operator 에러
   → pip install torch torchvision --upgrade 한 번에
-- bitsandbytes 0.49+ + PyTorch 2.11(cu130): libnvJitLink.so.13 못 찾음
-  → LD_LIBRARY_PATH에 /usr/local/lib/python3.11/dist-packages/nvidia/cu13/lib 추가 필수
-  → 또는 nvidia-nvjitlink-cu13 패키지 설치
-- 스크립트 pip install에 BnB 버전 핀 지정: bitsandbytes>=0.44.0
-  → 최신(0.49.2)은 PyTorch 2.11과 호환되나 LD_LIBRARY_PATH 필요
-- RunPod NFS 대용량 다운로드 I/O error (OS error 5) 빈발
-  → 500GB+ 다운로드 시 "IO Error: Input/output error (os error 5)" 랜덤 발생
-  → xet 프로토콜이 NFS와 호환 불량 → HF_HUB_DISABLE_XET=1 환경변수 필수
-  → max_workers=2로 제한하여 동시 쓰기 줄이기
-  → try/except retry loop 5회 감싸기 (while downloading - for attempt in range(5))
-  → snapshot_download은 incomplete 파일 resume 지원하므로 재시도 안전
-- DeepSeek-R1 fp8 네이티브 → BnB 4-bit 로딩 시 torch_dtype 강제 필요
-  → BnB 4-bit은 torch.float8_e4m3fn 입력 지원 안 함 (fp16/fp32만 받음)
-  → 에러: "Blockwise 4bit quantization only supports 16/32-bit floats, but got torch.float8_e4m3fn"
-  → from_pretrained에 torch_dtype=torch.float16 반드시 명시
-  → 동시에 config에서 fp8 quantization_config 제거 필수 (del _cfg.quantization_config)
-- BnB 4-bit + MoE 대형 모델(R1 671B) CPU 오프로드 에러
-  → "Some modules are dispatched on the CPU or the disk"
-  → accelerate가 bf16 크기(1342GB) 기준으로 계산해서 GPU 용량 부족 판단
-  → 해결: BitsAndBytesConfig(llm_int8_enable_fp32_cpu_offload=True)
-  → max_memory에 "cpu": "500GiB" 추가 (CPU 여유 공간 명시)
-  → GPU당 메모리는 A100 80GB 기준 "76GiB"까지 (2GB 여유)
+- bitsandbytes 0.49+ + CUDA < 12.9: libnvJitLink.so.13 못 찾음
+  → LD_LIBRARY_PATH 설정 또는 nvidia-nvjitlink-cu13 패키지 설치
+- 스크립트 pip install에 BnB 버전 핀 지정 필수
+- RunPod NFS 대용량 다운로드 I/O error (os error 5) 빈발
+  → xet 프로토콜이 NFS와 호환 불량 → HF_HUB_DISABLE_XET=1 필수
+  → max_workers 제한 + try/except retry loop 감싸기
+- fp8 네이티브 체크포인트 → BnB 4-bit 로딩 시 torch_dtype=torch.float16 강제 필요
+  → BnB 4-bit은 torch.float8_e4m3fn 입력 지원 안 함
+  → 동시에 config에서 fp8 quantization_config 제거 필수
 
-[시행착오 기록 — 대형 BnB 4-bit 로딩 ★ 중요 ★]
+[BnB 4-bit 대형 모델 핵심 규칙 ★ 중요 ★]
 - ★★ BnB 4-bit 대형 모델 로딩 시 max_memory에 "cpu" 키 절대 금지 ★★
   → "cpu" 엔트리가 있으면 accelerate가 bf16 원본 크기 기준 계산
   → GPU 예산 < bf16 크기 → 일부 레이어 "cpu" 자동 배치
@@ -161,22 +140,15 @@ import json, sys, re, os, ast
 
 
 # 모델별 최소 transformers 요구 버전
-# (각 프로젝트에서 직접 확장 가능)
-KNOWN_MIN_VERSIONS = {
-    "Qwen/Qwen3-235B-A22B": "4.51.0",
-    "Qwen/Qwen3-235B-A22B-GPTQ-Int4": "4.51.0",
-    "deepseek-ai/DeepSeek-R1": "4.46.3",
-    "deepseek-ai/DeepSeek-V3": "4.46.3",
+# 사용자 프로젝트에서 직접 확장하여 사용
+KNOWN_MIN_VERSIONS: dict[str, str] = {
     "meta-llama/Llama-3.1-70B-Instruct": "4.43.0",
     "meta-llama/Llama-3.1-405B": "4.43.0",
 }
 
-# 알려진 모델 크기 (GB)
-MODEL_VRAM_GB = {
-    "Qwen/Qwen3-235B-A22B-GPTQ-Int4": 120,
-    "Qwen/Qwen3-235B-A22B": 470,
-    "deepseek-ai/DeepSeek-R1": 671,
-    "deepseek-ai/DeepSeek-V3": 671,
+# 알려진 모델 크기 (GB, 원본 dtype 기준)
+# 사용자 프로젝트에서 직접 확장하여 사용
+MODEL_VRAM_GB: dict[str, int] = {
     "meta-llama/Llama-3.1-70B-Instruct": 140,
     "meta-llama/Llama-3.1-405B": 810,
 }
@@ -345,7 +317,7 @@ def check_source(source, fname, file_path=""):
                 f"필요한 layer만 선별 수집하도록 변경 필요"
             )
 
-    # 13. BnB 4-bit + max_memory "cpu" 엔트리 (meta tensor 버그)
+    # 13. BnB 4-bit + max_memory "cpu" 엔트리 (meta tensor 버그 회피)
     if uses_bnb and 'load_in_4bit' in source:
         # max_memory에 "cpu" 키 있는지 + device_map="auto" 같이 쓰는지
         has_cpu_in_maxmem = re.search(r'["\']cpu["\']\s*:\s*["\']?\d+', source)
@@ -358,7 +330,7 @@ def check_source(source, fname, file_path=""):
                 "해결: 'cpu' 엔트리 제거 + 수동 device_map 구성"
             )
 
-    # 14. BnB 대형 모델 + expandable_segments 누락 (2026-04-10 GPU5 단편화 OOM)
+    # 14. BnB 대형 모델 + expandable_segments 누락 (GPU 단편화 OOM 방지)
     if uses_bnb and 'load_in_4bit' in source and model_match:
         model_key = model_match.group(1)
         model_gb = MODEL_VRAM_GB.get(model_key, 0)
@@ -469,7 +441,7 @@ def main():
                     "RunPod pod 생성 시 networkVolumeId 누락 — "
                     "대형 모델 다운로드는 반드시 Network Volume 연결 필수 (ephemeral 볼륨은 pod 삭제 시 소멸)"
                 )
-            # 13-c. Spot instance 금지 (장기 작업) — 2026-04-11 R1 실험 손실 교훈
+            # 13-c. Spot instance 금지 (장기 작업)
             if re.search(r'bidPerGpu|interruptible\s*:\s*true', command):
                 pod_errors.append(
                     "RunPod spot instance(interruptible=true) 사용 감지 — "

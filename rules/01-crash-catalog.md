@@ -108,7 +108,7 @@
 | 항목 | 내용 |
 |------|------|
 | 증상 | `Blockwise 4bit quantization only supports 16/32-bit floats, but got torch.float8_e4m3fn` |
-| 트리거 | DeepSeek-R1/V3 공식 체크포인트 (fp8 block-scaled) |
+| 트리거 | fp8 block-scaled quantization 체크포인트 |
 | 해결 | 커뮤니티 BF16 변환본 사용 + config에서 `quantization_config` 제거 + `torch_dtype=torch.float16` 강제 |
 
 ### D2. `quantization_config` 자동 감지 conflict

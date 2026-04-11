@@ -2,7 +2,6 @@
 대형 모델 BnB 4-bit 로딩 레퍼런스 템플릿.
 
 CHANGELOG.md의 모든 크래시 사례를 반영한 안전 로딩 패턴.
-50B ~ 700B 모델에 사용 가능.
 
 Usage:
     # 스크립트 최상단
@@ -13,7 +12,7 @@ Usage:
     from pipeline.templates import large_model_loader_guard as loader
 
     model, tokenizer = loader.load_large_model_4bit(
-        model_path="/workspace/.cache_hf/models--unsloth--DeepSeek-R1-BF16/snapshots/XXX",
+        model_path="/workspace/.cache_hf/models--ORG--MODEL/snapshots/XXX",
     )
 """
 import os
@@ -80,7 +79,7 @@ def load_large_model_4bit(
     Args:
         model_path: 로컬 스냅샷 경로 (HF repo id 아님)
         install_deps: pip install 실행 여부
-        clear_module_cache_for: transformers_modules 하위 organization 이름 (예: "unsloth")
+        clear_module_cache_for: transformers_modules 하위 organization 이름
         n_params_b: 모델 파라미터 수(Billion). 지정하면 메모리 예산 사전 검증.
 
     Returns:
