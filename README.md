@@ -3,8 +3,7 @@
 **Claude Code subagent + 자동 파이프라인**으로 RunPod 대형 모델 배포 시
 크래시와 자원 낭비를 사전에 차단한다.
 
-실전에서 축적된 30+ 시행착오 사례를 바탕으로 구축됨
-([RunPod_Trial-Error](https://github.com/popixoxipop-collab/RunPod_Trial-Error) 참고).
+실전에서 축적된 30+ 시행착오 사례를 바탕으로 구축됨.
 
 ---
 
@@ -75,8 +74,8 @@ claude plugin add popixoxipop-collab/RunPod_Deploy_Agent
 ```
 /agent runpod-deploy
 
-대형 모델 DeepSeek-R1 671B을 BnB 4-bit로 로딩하는 스크립트를 작성하고
-A100 × 7 pod에 배포해서 Born probe를 실행해줘.
+대형 모델을 BnB 4-bit로 로딩하는 스크립트를 작성하고
+A100 × N pod에 배포해서 forward-only 추론을 실행해줘.
 ```
 
 에이전트가 자동으로:
@@ -176,12 +175,6 @@ RunPod_Deploy_Agent/
 5. PR 제출
 
 ---
-
-## 출처
-
-이 에이전트는 F-CORE 프로젝트의 Surgical MoE Chimera 실험(2026-03 ~ 2026-04)에서
-축적된 시행착오를 기반으로 구축됨. 원본 trial-error 기록은
-[RunPod_Trial-Error](https://github.com/popixoxipop-collab/RunPod_Trial-Error) 참고.
 
 ## 라이선스
 

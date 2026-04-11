@@ -10,7 +10,7 @@ Claude Code에서 RunPod Deploy Agent를 호출하는 실전 예제.
 /agent runpod-deploy
 
 Llama 3.1 70B Instruct를 RunPod A100 80GB 2장에서 BnB 4-bit로 로딩하고,
-Born probe를 12개 수학 텍스트에 대해 실행해줘.
+forward-only 추론으로 12개 입력의 hidden state를 수집해줘.
 ```
 
 **에이전트가 할 일**:
@@ -61,8 +61,8 @@ Born probe를 12개 수학 텍스트에 대해 실행해줘.
 ```
 /agent runpod-deploy
 
-DeepSeek-R1 671B을 BnB 4-bit로 A100 80GB 7장에 로딩해서 레이어별 hidden state
-를 측정하는 스크립트를 작성하고 실행해줘. 결과는 로컬에 저장.
+671B 규모 모델을 BnB 4-bit로 A100 80GB 7장에 로딩해서 forward-only
+추론을 돌리는 스크립트를 작성하고 실행해줘. 결과는 로컬에 저장.
 ```
 
 **에이전트가 할 일 (전체 시퀀스)**:
@@ -71,7 +71,7 @@ DeepSeek-R1 671B을 BnB 4-bit로 A100 80GB 7장에 로딩해서 레이어별 hid
 - 메모리: 671 × 0.5 × 1.15 = 385.8 GB
 - 예산: 7 × 80 × 0.85 = 476 GB (여유 90 GB ✓)
 - 볼륨: 671 × 2 × 1.1 = 1476 GB → 1500 GB 필요
-- 시간: 로딩 ~3h + probe ~20min
+- 시간: 로딩 ~3h + 추론 ~20min
 - 비용: 3.3h × $10.43/hr ≈ $34
 - **사용자 승인 대기**
 
@@ -92,7 +92,7 @@ subprocess.run([sys.executable, "-m", "pip", "install", "-q",
 from transformers import (AutoConfig, AutoModelForCausalLM, AutoTokenizer,
                           BitsAndBytesConfig)
 
-LOCAL_PATH = "/workspace/.cache_hf/models--unsloth--DeepSeek-R1-BF16/snapshots/XXX"
+LOCAL_PATH = "/workspace/.cache_hf/models--ORG--MODEL/snapshots/XXX"
 
 # Config + fp8 제거
 cfg = AutoConfig.from_pretrained(LOCAL_PATH, trust_remote_code=True)
@@ -135,7 +135,7 @@ model = AutoModelForCausalLM.from_pretrained(
 model.eval()
 print(f"Loaded in {time.time()-t0:.0f}s")
 
-# 이후 hook 기반 hidden state 수집
+# 이후 forward-only 추론 루프
 ...
 ```
 

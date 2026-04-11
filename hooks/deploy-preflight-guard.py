@@ -84,10 +84,10 @@ Code Quality Preflight Guard (PreToolUse: Write, Edit, Bash)
   → max_memory에 "cpu": "500GiB" 추가 (CPU 여유 공간 명시)
   → GPU당 메모리는 A100 80GB 기준 "76GiB"까지 (2GB 여유)
 
-[시행착오 기록 — 2026-04-11 DeepSeek-R1 671B Born+PRISM ★ 중요 ★]
+[시행착오 기록 — 대형 BnB 4-bit 로딩 ★ 중요 ★]
 - ★★ BnB 4-bit 대형 모델 로딩 시 max_memory에 "cpu" 키 절대 금지 ★★
-  → "cpu" 엔트리가 있으면 accelerate가 bf16 크기(R1=1342GB) 기준 계산
-  → 1342GB > GPU 예산 → 일부 레이어 "cpu" 자동 배치
+  → "cpu" 엔트리가 있으면 accelerate가 bf16 원본 크기 기준 계산
+  → GPU 예산 < bf16 크기 → 일부 레이어 "cpu" 자동 배치
   → 로딩 완료 후 첫 forward pass에서 accelerate AlignDevicesHook.pre_forward가
      offload=True 모드로 set_module_tensor_to_device 호출
   → BnB 0.49.2의 Params4bit.to() → quant_state.to() → self.code.to(device)
@@ -113,7 +113,7 @@ Code Quality Preflight Guard (PreToolUse: Write, Edit, Bash)
   ```
 - ★★ PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True 필수 ★★
   → BnB on-the-fly 양자화 시 BF16 shard 반복 alloc/free → 메모리 단편화
-  → R1 로딩 중 GPU5에 21.9 GiB "reserved but unallocated" → OOM
+  → 대형 모델 로딩 중 N GiB "reserved but unallocated" → OOM
   → 해결: 스크립트 최상단 (torch import 전)에
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
   → PyTorch 2.1+ 기능. 가변 크기 segment로 파편화 대폭 감소
@@ -126,11 +126,11 @@ Code Quality Preflight Guard (PreToolUse: Write, Edit, Bash)
   → bnb_4bit_use_double_quant=False (double_quant도 meta tensor 이슈 유발 가능)
 - RunPod Spot instance 금지 (1시간+ 작업):
   → interruptible=true 는 예고 없이 뺏길 수 있음
-  → 3시간 로딩을 spot에서 돌리면 자살행위
+  → 장시간 로딩을 spot에서 돌리면 자살행위
   → 반드시 interruptible=false (on-demand) 사용
 - torch._inductor 초기 컴파일 대기:
-  → DeepSeek-R1 custom modeling_deepseek.py가 torch.compile 사용
-  → 프로세스 시작 후 ~5-10분 동안 inductor compile_worker 32개 구동
+  → custom modeling 파일 사용 모델이 torch.compile 사용 시
+  → 프로세스 시작 후 ~5-10분 동안 inductor compile_worker 구동
   → 이 동안 GPU 0%, tqdm 출력 없음 → 멈춘 것처럼 보임 (정상)
 - NFS 페이지 캐시 보존:
   → 같은 볼륨에서 pod 재생성해도 NFS 서버 페이지 캐시는 유지
@@ -161,24 +161,24 @@ import json, sys, re, os, ast
 
 
 # 모델별 최소 transformers 요구 버전
+# (사용자 프로젝트에서 직접 확장 가능)
 KNOWN_MIN_VERSIONS = {
-    "AI-MO/NuminaMath-72B-CoT": "4.42.3",
-    "Qwen/Qwen2.5-Math-72B-Instruct": "4.43.1",
     "Qwen/Qwen3-235B-A22B": "4.51.0",
     "Qwen/Qwen3-235B-A22B-GPTQ-Int4": "4.51.0",
     "deepseek-ai/DeepSeek-R1": "4.46.3",
-    "Qwen/Qwen2.5-Math-7B-Instruct": "4.37.0",
     "deepseek-ai/DeepSeek-V3": "4.46.3",
-    "internlm/internlm2-math-plus-20b": "4.38.0",
+    "meta-llama/Llama-3.1-70B-Instruct": "4.43.0",
+    "meta-llama/Llama-3.1-405B": "4.43.0",
 }
 
-# 알려진 모델 크기 (GB, GPTQ-Int4 기준)
+# 알려진 모델 크기 (GB)
 MODEL_VRAM_GB = {
     "Qwen/Qwen3-235B-A22B-GPTQ-Int4": 120,
     "Qwen/Qwen3-235B-A22B": 470,
-    "AI-MO/NuminaMath-72B-CoT": 72,
-    "Qwen/Qwen2.5-Math-72B-Instruct": 72,
     "deepseek-ai/DeepSeek-R1": 671,
+    "deepseek-ai/DeepSeek-V3": 671,
+    "meta-llama/Llama-3.1-70B-Instruct": 140,
+    "meta-llama/Llama-3.1-405B": 810,
 }
 
 

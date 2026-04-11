@@ -34,27 +34,24 @@ import ast
 
 
 # 모델별 최소 transformers 요구 버전
+# (사용자 프로젝트에서 직접 확장 가능)
 KNOWN_MIN_VERSIONS = {
-    "AI-MO/NuminaMath-72B-CoT": "4.42.3",
-    "Qwen/Qwen2.5-Math-72B-Instruct": "4.43.1",
     "Qwen/Qwen3-235B-A22B": "4.51.0",
     "Qwen/Qwen3-235B-A22B-GPTQ-Int4": "4.51.0",
     "deepseek-ai/DeepSeek-R1": "4.46.3",
     "deepseek-ai/DeepSeek-V3": "4.46.3",
-    "unsloth/DeepSeek-R1-BF16": "4.46.3",
-    "Qwen/Qwen2.5-Math-7B-Instruct": "4.37.0",
+    "meta-llama/Llama-3.1-70B-Instruct": "4.43.0",
+    "meta-llama/Llama-3.1-405B": "4.43.0",
 }
 
 # 알려진 모델 크기 (GB)
 MODEL_VRAM_GB = {
     "Qwen/Qwen3-235B-A22B-GPTQ-Int4": 120,
     "Qwen/Qwen3-235B-A22B": 470,
-    "AI-MO/NuminaMath-72B-CoT": 72,
-    "Qwen/Qwen2.5-Math-72B-Instruct": 72,
     "deepseek-ai/DeepSeek-R1": 671,
-    "unsloth/DeepSeek-R1-BF16": 671,
     "deepseek-ai/DeepSeek-V3": 671,
-    "meta-llama/Llama-3.1-405B": 405,
+    "meta-llama/Llama-3.1-70B-Instruct": 140,
+    "meta-llama/Llama-3.1-405B": 810,
 }
 
 
