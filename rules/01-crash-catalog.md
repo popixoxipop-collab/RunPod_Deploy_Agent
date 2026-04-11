@@ -25,13 +25,13 @@
 | 발생 시점 | `from_pretrained()` 시작 시 |
 | 해결 | 수동 device_map 생성 (아래 A3 참고) |
 
-### A3. BnB meta tensor 버그 (forward 첫 호출)
+### A3. BnB meta tensor 버그 (첫 model call)
 
 | 항목 | 내용 |
 |------|------|
 | 증상 | `NotImplementedError: Cannot copy out of meta tensor; no data!` |
 | 트리거 | `max_memory`에 `"cpu"` 엔트리 + BnB 0.49.2 + accelerate offload hook |
-| 발생 시점 | 로딩 성공 후 첫 forward pass |
+| 발생 시점 | 로딩 성공 후 첫 `model(**inputs)` 호출 |
 | 원인 | `quant_state.code`가 meta tensor인데 `set_module_tensor_to_device`가 호출됨 |
 | 해결 | 수동 device_map (모든 레이어 정수 GPU ID로) + `"cpu"` 엔트리 제거 |
 | 추가 | `bnb_4bit_use_double_quant=False` |
@@ -91,13 +91,13 @@
 | 트리거 | multi-GPU에서 `register_forward_hook` 내부 GPU 연산, `out`과 `inp[0]`이 다른 GPU |
 | 해결 | 훅 진입 즉시 `.detach().cpu().float()` → CPU에서 연산 |
 
-### C2. `output_hidden_states=True` 대형 모델 RAM 폭발
+### C2. 전체 layer state 동시 보관 RAM 폭발
 
 | 항목 | 내용 |
 |------|------|
 | 증상 | OOM Killed, 또는 시스템 swap 100% |
-| 트리거 | 70B+ 모델 × 전 레이어 hidden states 동시 보관 |
-| 해결 | `register_forward_hook`으로 레이어별 순차 처리 |
+| 트리거 | 70B+ 모델에서 `output_hidden_states=True` 로 모든 layer state 한꺼번에 수집 |
+| 해결 | 필요한 layer만 선별 수집 (forward hook 활용), 전체 동시 보관 금지 |
 
 ---
 

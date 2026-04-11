@@ -75,7 +75,7 @@ claude plugin add popixoxipop-collab/RunPod_Deploy_Agent
 /agent runpod-deploy
 
 대형 모델을 BnB 4-bit로 로딩하는 스크립트를 작성하고
-A100 × N pod에 배포해서 forward-only 추론을 실행해줘.
+A100 × N pod에 배포해줘.
 ```
 
 에이전트가 자동으로:

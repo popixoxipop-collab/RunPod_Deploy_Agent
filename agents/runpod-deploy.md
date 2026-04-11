@@ -213,12 +213,12 @@ ValueError: Some modules are dispatched on the CPU or the disk.
 → 원인: accelerate가 BF16 원본 크기로 오산
 → 해결: 수동 device_map (모든 값 정수 GPU ID)
 
-### D. Hook device mismatch
+### D. Forward hook device mismatch
 ```
 RuntimeError: Expected all tensors to be on the same device
 ```
-→ 원인: multi-GPU에서 hook의 `out`과 `inp[0]`이 다른 GPU
-→ 해결: `h_out = out[0].detach().cpu().float(); h_in = inp[0].detach().cpu().float()`
+→ 원인: multi-GPU + `register_forward_hook` 에서 `out`과 `inp[0]`이 다른 GPU
+→ 해결: 훅 진입 즉시 `.detach().cpu().float()` 로 CPU에서 연산
 
 ### E. fp8 체크포인트 + BnB 비호환
 ```

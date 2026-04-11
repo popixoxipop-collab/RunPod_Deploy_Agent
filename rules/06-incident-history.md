@@ -49,7 +49,7 @@
 00:05  pip install transformers==4.48.3, bitsandbytes 0.49.2
 03:42  163/163 샤드 로딩 성공! (이전 OOM 지점 120/163 통과)
        "Loaded in 13769s. 61 layers, hidden=7168"
-03:42  forward pass 준비 → model(**inputs) 호출
+03:42  첫 `model(**inputs)` 호출
 03:42  CRASH: NotImplementedError: Cannot copy out of meta tensor; no data!
 ```
 

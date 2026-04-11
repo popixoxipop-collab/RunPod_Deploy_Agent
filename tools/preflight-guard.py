@@ -214,8 +214,8 @@ def check_source(source: str, fname: str, file_path: str = "") -> list:
         if model_gb >= 70:
             errors.append(
                 f"메모리 위험: {model_key} ({model_gb}GB) + output_hidden_states=True → "
-                f"전체 레이어 hidden states 동시 보관, RAM 폭발. "
-                f"register_forward_hook으로 레이어별 순차 처리 필수"
+                f"전체 layer state 동시 보관, RAM 폭발. "
+                f"필요한 layer만 선별 수집하도록 변경 필요"
             )
 
     # 12. BnB 4-bit + max_memory 'cpu' 엔트리 (meta tensor 버그)

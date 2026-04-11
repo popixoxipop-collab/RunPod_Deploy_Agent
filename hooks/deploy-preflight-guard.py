@@ -88,7 +88,7 @@ Code Quality Preflight Guard (PreToolUse: Write, Edit, Bash)
 - ★★ BnB 4-bit 대형 모델 로딩 시 max_memory에 "cpu" 키 절대 금지 ★★
   → "cpu" 엔트리가 있으면 accelerate가 bf16 원본 크기 기준 계산
   → GPU 예산 < bf16 크기 → 일부 레이어 "cpu" 자동 배치
-  → 로딩 완료 후 첫 forward pass에서 accelerate AlignDevicesHook.pre_forward가
+  → 로딩 완료 후 첫 model call 시 accelerate AlignDevicesHook.pre_forward가
      offload=True 모드로 set_module_tensor_to_device 호출
   → BnB 0.49.2의 Params4bit.to() → quant_state.to() → self.code.to(device)
   → self.code이 meta tensor (init_empty_weights 컨텍스트에서 materialize 안 됨)
@@ -341,11 +341,11 @@ def check_source(source, fname, file_path=""):
         if model_gb >= 70:
             errors.append(
                 f"메모리 위험: {model_key} ({model_gb}GB)에서 output_hidden_states=True — "
-                f"전체 레이어 hidden states 동시 보관으로 RAM 폭발 위험. "
-                f"register_forward_hook으로 레이어별 순차 처리 필수"
+                f"전체 layer state 동시 보관으로 RAM 폭발 위험. "
+                f"필요한 layer만 선별 수집하도록 변경 필요"
             )
 
-    # 13. BnB 4-bit + max_memory "cpu" 엔트리 (2026-04-11 R1 meta tensor 버그)
+    # 13. BnB 4-bit + max_memory "cpu" 엔트리 (meta tensor 버그)
     if uses_bnb and 'load_in_4bit' in source:
         # max_memory에 "cpu" 키 있는지 + device_map="auto" 같이 쓰는지
         has_cpu_in_maxmem = re.search(r'["\']cpu["\']\s*:\s*["\']?\d+', source)
@@ -354,9 +354,8 @@ def check_source(source, fname, file_path=""):
             errors.append(
                 "BnB 4-bit + max_memory에 'cpu' 키 + device_map='auto' 조합은 금지. "
                 "accelerate가 BF16 크기 기준 CPU offload → BnB 0.49.2의 "
-                "quant_state.code meta tensor 버그로 첫 forward pass 크래시. "
-                "해결: 'cpu' 엔트리 제거 + 수동 device_map 구성 "
-                "(feedback_bnb_4bit_device_map.md 참고)"
+                "quant_state.code meta tensor 버그로 첫 model call 크래시. "
+                "해결: 'cpu' 엔트리 제거 + 수동 device_map 구성"
             )
 
     # 14. BnB 대형 모델 + expandable_segments 누락 (2026-04-10 GPU5 단편화 OOM)

@@ -4,13 +4,13 @@ Claude Code에서 RunPod Deploy Agent를 호출하는 실전 예제.
 
 ---
 
-## 예제 1: 70B 모델 배포
+## 예제 1: 70B 모델 로딩
 
 ```
 /agent runpod-deploy
 
-Llama 3.1 70B Instruct를 RunPod A100 80GB 2장에서 BnB 4-bit로 로딩하고,
-forward-only 추론으로 12개 입력의 hidden state를 수집해줘.
+Llama 3.1 70B Instruct를 RunPod A100 80GB 2장에서 BnB 4-bit로 로딩하는
+스크립트 작성해줘.
 ```
 
 **에이전트가 할 일**:
@@ -29,7 +29,7 @@ forward-only 추론으로 12개 입력의 hidden state를 수집해줘.
 ```
 /agent runpod-deploy
 
-이전에 돌리던 pod 상태 확인하고, idle면 같은 볼륨에 새 실험 스크립트 올려줘.
+이전에 돌리던 pod 상태 확인하고, idle면 같은 볼륨에 새 스크립트 올려줘.
 ```
 
 **에이전트가 할 일**:
@@ -56,23 +56,22 @@ forward-only 추론으로 12개 입력의 hidden state를 수집해줘.
 
 ---
 
-## 예제 4: 대형 모델(671B) 전체 워크플로
+## 예제 4: 대형 모델 전체 워크플로
 
 ```
 /agent runpod-deploy
 
-671B 규모 모델을 BnB 4-bit로 A100 80GB 7장에 로딩해서 forward-only
-추론을 돌리는 스크립트를 작성하고 실행해줘. 결과는 로컬에 저장.
+대형 모델을 BnB 4-bit로 A100 80GB 여러 장에 로딩하는 스크립트를
+작성하고 실행해줘. 결과는 로컬에 저장.
 ```
 
 **에이전트가 할 일 (전체 시퀀스)**:
 
 ### Phase 0: Plan
-- 메모리: 671 × 0.5 × 1.15 = 385.8 GB
-- 예산: 7 × 80 × 0.85 = 476 GB (여유 90 GB ✓)
-- 볼륨: 671 × 2 × 1.1 = 1476 GB → 1500 GB 필요
-- 시간: 로딩 ~3h + 추론 ~20min
-- 비용: 3.3h × $10.43/hr ≈ $34
+- 메모리: `params_b × 0.5 × 1.15` GB (4-bit + overhead)
+- 예산: `n_gpus × vram_gb × 0.85` GB (15% workspace 여유)
+- 볼륨: `params_b × 2 × 1.1` GB (BnB는 원본 BF16 필요)
+- 시간/비용 추정
 - **사용자 승인 대기**
 
 ### Phase 1: 스크립트 작성 (templates 사용)
@@ -94,14 +93,14 @@ from transformers import (AutoConfig, AutoModelForCausalLM, AutoTokenizer,
 
 LOCAL_PATH = "/workspace/.cache_hf/models--ORG--MODEL/snapshots/XXX"
 
-# Config + fp8 제거
+# Config + 불필요한 quantization_config 제거
 cfg = AutoConfig.from_pretrained(LOCAL_PATH, trust_remote_code=True)
 if hasattr(cfg, "quantization_config"):
     del cfg.quantization_config
 
 # 수동 device_map (R12)
-n_layers = cfg.num_hidden_layers  # 61
-n_gpus = torch.cuda.device_count()  # 7
+n_layers = cfg.num_hidden_layers
+n_gpus = torch.cuda.device_count()
 layers_per_gpu = [(n_layers + i) // n_gpus for i in range(n_gpus)]
 layers_per_gpu.reverse()
 
@@ -135,7 +134,7 @@ model = AutoModelForCausalLM.from_pretrained(
 model.eval()
 print(f"Loaded in {time.time()-t0:.0f}s")
 
-# 이후 forward-only 추론 루프
+# 이후 사용자 작업 로직
 ...
 ```
 
@@ -155,25 +154,25 @@ runpod-deploy --list
 ```bash
 runpod-deploy \
     --gpu-type "NVIDIA A100-SXM4-80GB" \
-    --gpu-count 7 \
+    --gpu-count N \
     --volume-id vol_xxxx \
     --datacenter US-MD-1 \
     --public-key "$(cat ~/.ssh/id_ed25519.pub)" \
     --image runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
-# [OK] Pod 생성됨: t4bj7vq4ni5e7l
+# [OK] Pod 생성됨: <pod_id>
 ```
 
 ### Phase 5: 스크립트 업로드 + 실행
 ```bash
-RUNPOD_AGENT=1 scp -P 19693 /workspace/script.py root@154.54.102.50:/workspace/
-RUNPOD_AGENT=1 ssh -p 19693 root@154.54.102.50 \
+RUNPOD_AGENT=1 scp -P <port> /workspace/script.py root@<ip>:/workspace/
+RUNPOD_AGENT=1 ssh -p <port> root@<ip> \
     "nohup python /workspace/script.py > /workspace/run.log 2>&1 </dev/null &"
 ```
 
 ### Phase 6: 60초 double-check (R9)
 ```bash
 sleep 60
-RUNPOD_AGENT=1 ssh -p 19693 root@154.54.102.50 "ps aux | grep python | grep -v grep"
+RUNPOD_AGENT=1 ssh -p <port> root@<ip> "ps aux | grep python | grep -v grep"
 ```
 
 ### Phase 7: 모니터링
@@ -185,9 +184,9 @@ runpod-idle-monitor --action stop --poll-interval-sec 300 &
 ### Phase 8: 완료 후 cleanup
 ```bash
 # 결과 rsync
-RUNPOD_AGENT=1 scp -P 19693 root@154.54.102.50:/workspace/results/* ./results/
+RUNPOD_AGENT=1 scp -P <port> root@<ip>:/workspace/results/* ./results/
 # Pod 종료
-runpod-deploy --terminate t4bj7vq4ni5e7l
+runpod-deploy --terminate <pod_id>
 # Volume 유지 여부 사용자 확인
 ```
 
@@ -208,7 +207,7 @@ Spot 인스턴스로 3시간짜리 로딩 돌려줘
 ### 사용자가 volume 삭제 요청 없이 삭제 자동화
 ```
 /agent runpod-deploy
-실험 끝나면 pod + 볼륨 전부 정리해줘
+작업 끝나면 pod + 볼륨 전부 정리해줘
 ```
 
 **에이전트 응답**:

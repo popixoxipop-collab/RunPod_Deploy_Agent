@@ -127,15 +127,18 @@ model.eval()
 
 ---
 
-## Hook 함수 (multi-GPU 안전)
+## Forward hook 사용 시 주의 (multi-GPU)
+
+`torch.nn.Module.register_forward_hook` 을 multi-GPU 환경에서 사용할 때,
+훅 내부에서 텐서 연산을 GPU에서 직접 하면 accelerate가 layer output을 다음 GPU로
+이미 옮겨뒀을 수 있어 `device mismatch` 발생. 훅 진입 즉시 CPU로 옮겨서 연산할 것.
 
 ```python
 def _hook(module, inp, out):
     # 훅 진입 즉시 CPU로 내려서 device mismatch 방지
-    h_out = (out[0] if isinstance(out, tuple) else out).detach().cpu().float()
-    h_in = inp[0].detach().cpu().float()
-    delta = h_out - h_in
-    # 이후 CPU 연산만
+    out_cpu = (out[0] if isinstance(out, tuple) else out).detach().cpu().float()
+    in_cpu = inp[0].detach().cpu().float()
+    # 이후 CPU에서 필요한 연산 수행
     ...
 ```
 
