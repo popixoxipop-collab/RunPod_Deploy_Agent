@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.env
+*.log
+.venv/
+venv/
+node_modules/
+
+# Local credentials / private material
+.env.*
+!.env.example
+.runpod_api_key
+.hf_token
+.huggingface/
+.secrets/
+secrets.*
+*.pem
+*.key
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
